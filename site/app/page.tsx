@@ -10,7 +10,7 @@ const navItems = [
   ["知识库", "#knowledge"],
   ["模拟案例", "#case"],
   ["运营看板", "#dashboard"],
-];
+].concat([["云端台账", "/ops"]]);
 
 const capabilities = [
   ["01", "分析选题", "用六维评分判断是否值得做，并把风险和待核验项先暴露出来。"],
@@ -252,4 +252,3 @@ export default function Home() {
     </main>
   );
 }
-

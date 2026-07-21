@@ -5,5 +5,5 @@ dist/
 .dev.vars
 .env*
 *.log
+*.tsbuildinfo
 site/app/_sites-preview/
-
