@@ -7,12 +7,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("host") ?? "localhost:3000";
   const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
   const origin = `${protocol}://${host}`;
-  const title = "秋芝 AI 内容运营｜求职作品集";
-  const description = "内容运营 Agent、知识库、模拟案例、运营看板与秋芝2046代表视频速览。";
+  const title = "快速了解秋芝2046｜账号洞察与视频速览";
+  const description = "快速了解秋芝2046的账号定位、内容表达与30条代表视频。";
   return {
     title,
     description,
-    openGraph: { title, description, type: "website", images: [{ url: `${origin}/og.png`, width: 1716, height: 906, alt: "秋芝 AI 内容运营求职作品集" }] },
+    openGraph: { title, description, type: "website", images: [{ url: `${origin}/og.png`, width: 1716, height: 906, alt: "秋芝2046账号洞察与视频速览" }] },
     twitter: { card: "summary_large_image", title, description, images: [`${origin}/og.png`] },
   };
 }

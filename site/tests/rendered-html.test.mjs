@@ -71,15 +71,17 @@ async function render(path = "/", headers = { accept: "text/html" }) {
   return fetch(`${origin}${path}`, { headers, redirect: "manual" });
 }
 
-test("server-renders the finished portfolio", async () => {
+test("server-renders the simplified public video guide", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /秋芝 AI 内容运营/);
+  assert.match(html, /快速了解秋芝2046/);
   assert.match(html, /30 条视频/);
-  assert.match(html, /模拟案例/);
   assert.match(html, /不代表秋芝2046官方/);
-  assert.match(html, /href="\/ops"/);
+  assert.match(html, /href="#insight"/);
+  assert.match(html, /href="#videos"/);
+  assert.doesNotMatch(html, /href="#agent"|href="#knowledge"|href="#case"|href="#dashboard"|href="\/ops"/);
+  assert.doesNotMatch(html, /CODEX AGENT|KNOWLEDGE BASE|CASE STUDY|OPERATIONS DASHBOARD/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
 
