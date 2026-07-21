@@ -85,6 +85,24 @@ test("server-renders the simplified public video guide", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
 
+test("renders the recruiting portfolio and serves its PDF", async () => {
+  const response = await render("/portfolio");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /一套能落到/);
+  assert.match(html, /三个马上能制作的选题/);
+  assert.match(html, /14条模拟反馈/);
+  assert.match(html, /不编造成绩/);
+  assert.match(html, /个人求职作品/);
+  assert.match(html, /href="\/qiuzhi-ai-content-ops-portfolio\.pdf"/);
+  assert.doesNotMatch(html, /href="\/ops"/);
+
+  const pdfResponse = await render("/qiuzhi-ai-content-ops-portfolio.pdf", { accept: "application/pdf" });
+  assert.equal(pdfResponse.status, 200);
+  assert.match(pdfResponse.headers.get("content-type") ?? "", /application\/pdf/);
+  assert.ok(Number(pdfResponse.headers.get("content-length") ?? 0) > 100_000);
+});
+
 test("protects the cloud operations surface before touching D1", async () => {
   const apiResponse = await render("/api/ops/feedback", { accept: "application/json" });
   assert.equal(apiResponse.status, 401);
