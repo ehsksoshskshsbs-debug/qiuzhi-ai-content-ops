@@ -5,9 +5,12 @@ export const needTags = ["教程需求", "报错", "商务", "隐私", "招聘",
 export const priorities = ["P0", "P1", "P2", "P3"] as const;
 export const statuses = ["待处理", "处理中", "等待外部", "已解决", "已归档"] as const;
 export const aiReviewStatuses = ["分类中", "待审核", "已接受", "已修改", "分类失败"] as const;
+export const memberRoles = ["管理员", "成员", "只读"] as const;
+export const memberStatuses = ["启用", "停用"] as const;
 
 export type NeedTag = (typeof needTags)[number];
 export type Priority = (typeof priorities)[number];
+export type MemberRole = (typeof memberRoles)[number];
 
 export type FeedbackInput = {
   platform?: string;
@@ -15,6 +18,7 @@ export type FeedbackInput = {
   externalId?: string;
   contentId?: string;
   authorAlias?: string;
+  sourceText?: string;
   summary?: string;
   sentiment?: string;
   needTag?: string;
@@ -23,14 +27,28 @@ export type FeedbackInput = {
   assigneeEmail?: string;
   nextAction?: string;
   occurredAt?: string;
+  version?: number;
 };
 
-export type ValidFeedbackInput = Required<Pick<FeedbackInput,
-  "platform" | "sourceType" | "summary" | "sentiment" | "needTag" | "priority" | "status" | "occurredAt"
->> & Omit<FeedbackInput, "platform" | "sourceType" | "summary" | "sentiment" | "needTag" | "priority" | "status" | "occurredAt">;
+export type ValidFeedbackInput = Omit<FeedbackInput,
+  "platform" | "sourceType" | "sourceText" | "summary" | "sentiment" | "needTag" | "priority" | "status" | "occurredAt"
+> & {
+  platform: string;
+  sourceType: string;
+  sourceText: string;
+  summary: string;
+  sentiment: string;
+  needTag: string;
+  priority: string;
+  status: string;
+  occurredAt: string;
+};
 
 export function validateFeedbackInput(input: FeedbackInput): { value?: ValidFeedbackInput; error?: string } {
-  const summary = maskSensitiveText(input.summary?.trim() ?? "");
+  const sourceText = maskSensitiveText((input.sourceText ?? input.summary)?.trim() ?? "");
+  if (!sourceText) return { error: "匿名反馈内容不能为空。" };
+  if (sourceText.length > 1200) return { error: "匿名反馈内容不能超过 1200 字。" };
+  const summary = maskSensitiveText((input.summary?.trim() || sourceText).trim());
   if (!summary) return { error: "匿名摘要不能为空。" };
   if (summary.length > 800) return { error: "匿名摘要不能超过 800 字。" };
 
@@ -40,6 +58,7 @@ export function validateFeedbackInput(input: FeedbackInput): { value?: ValidFeed
   const value: ValidFeedbackInput = {
     platform: enumValue(input.platform, platforms, "其他"),
     sourceType: enumValue(input.sourceType, sourceTypes, "主动反馈"),
+    sourceText,
     summary,
     sentiment: enumValue(input.sentiment, sentiments, "中性"),
     needTag: enumValue(input.needTag, needTags, "其他"),
@@ -51,6 +70,7 @@ export function validateFeedbackInput(input: FeedbackInput): { value?: ValidFeed
     authorAlias: cleanOptional(maskSensitiveText(input.authorAlias ?? ""), 120),
     assigneeEmail: cleanOptional(input.assigneeEmail?.toLowerCase(), 254),
     nextAction: cleanOptional(maskSensitiveText(input.nextAction ?? ""), 500),
+    version: Number.isInteger(input.version) && Number(input.version) > 0 ? Number(input.version) : undefined,
   };
   return { value };
 }

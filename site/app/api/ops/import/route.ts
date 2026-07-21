@@ -1,10 +1,12 @@
 import { createFeedback } from "../../../../lib/feedback-repository";
-import { getOpsAccess, opsAccessResponse } from "../../../ops-auth";
+import { getOpsAccess, opsAccessResponse, opsRoleResponse } from "../../../ops-auth";
 import type { FeedbackInput } from "../../../../lib/ops-domain";
 
 export async function POST(request: Request) {
   const access = await getOpsAccess();
   if (!access.ok) return opsAccessResponse(access);
+  const denied = opsRoleResponse(access, ["管理员", "成员"]);
+  if (denied) return denied;
   const payload = await request.json() as { rows?: FeedbackInput[] };
   if (!Array.isArray(payload.rows) || payload.rows.length === 0) {
     return Response.json({ error: "没有可导入的记录。" }, { status: 400 });

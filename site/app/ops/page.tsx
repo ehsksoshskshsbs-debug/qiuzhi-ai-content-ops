@@ -24,5 +24,5 @@ export default async function OpsPage() {
     );
   }
 
-  return <OpsWorkbench currentUser={access.user.email} signOutPath={chatGPTSignOutPath("/")} />;
+  return <OpsWorkbench currentUser={access.user.email} role={access.role} signOutPath={chatGPTSignOutPath("/")} />;
 }

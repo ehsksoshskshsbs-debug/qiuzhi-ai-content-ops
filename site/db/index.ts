@@ -39,6 +39,18 @@ async function initialize(db: D1Database): Promise<void> {
   await ensureFeedbackAiColumns(db);
 
   const now = new Date().toISOString();
+  const bootstrapEmails = parseEmails(getRuntimeEnv().OPS_ALLOWED_EMAILS);
+  if (bootstrapEmails.length > 0) {
+    await db.batch(
+      bootstrapEmails.map((email, index) =>
+        db.prepare(
+          `INSERT OR IGNORE INTO workspace_members
+            (id, workspace_id, email, role, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, '启用', ?, ?)`,
+        ).bind(crypto.randomUUID(), "qiuzhi-ops", email, index === 0 ? "管理员" : "成员", now, now),
+      ),
+    );
+  }
   await db.batch(
     supportedPlatforms.map((platform) =>
       db
@@ -59,4 +71,19 @@ async function ensureFeedbackAiColumns(db: D1Database): Promise<void> {
     .filter(([name]) => !existing.has(name))
     .map(([name, type]) => db.prepare(`ALTER TABLE feedback_records ADD COLUMN ${name} ${type}`));
   if (statements.length > 0) await db.batch(statements);
+  await db.prepare(
+    "UPDATE feedback_records SET source_text = summary WHERE source_text IS NULL OR source_text = ''",
+  ).run();
+  await db.prepare(
+    "CREATE UNIQUE INDEX IF NOT EXISTS feedback_workspace_content_hash_idx ON feedback_records (workspace_id, content_hash)",
+  ).run();
+}
+
+function parseEmails(value?: string): string[] {
+  return [...new Set(
+    (value ?? "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
+  )];
 }

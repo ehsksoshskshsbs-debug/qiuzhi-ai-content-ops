@@ -15,6 +15,13 @@
       "when": 1784620518304,
       "tag": "0001_condemned_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784638131437,
+      "tag": "0002_harsh_queen_noir",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { ensureSchema } from "../../../../../../db";
-import { getOpsAccess, opsAccessResponse } from "../../../../../ops-auth";
+import { getOpsAccess, opsAccessResponse, opsRoleResponse } from "../../../../../ops-auth";
 import { supportedPlatforms } from "../../../../../../db/schema";
 
 type RouteContext = { params: Promise<{ platform: string }> };
@@ -7,6 +7,8 @@ type RouteContext = { params: Promise<{ platform: string }> };
 export async function POST(_: Request, context: RouteContext) {
   const access = await getOpsAccess();
   if (!access.ok) return opsAccessResponse(access);
+  const denied = opsRoleResponse(access, ["管理员"]);
+  if (denied) return denied;
   const { platform: encodedPlatform } = await context.params;
   const platform = decodeURIComponent(encodedPlatform);
   if (!supportedPlatforms.includes(platform as (typeof supportedPlatforms)[number])) {

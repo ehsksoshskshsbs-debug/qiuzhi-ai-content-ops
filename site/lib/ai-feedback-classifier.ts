@@ -1,11 +1,13 @@
 import { getRuntimeEnv } from "../db";
-import { maskSensitiveText, needTags, priorities, type NeedTag, type Priority } from "./ops-domain";
+import { maskSensitiveText, needTags, priorities, sentiments, type NeedTag, type Priority } from "./ops-domain";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
 const DEFAULT_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const PRIVACY_INCIDENT = /(隐私泄露|数据泄露|个人信息(?:被)?曝光|账号被盗|未经授权.{0,8}(?:公开|分享|使用))/;
 
 export type ClassificationSuggestion = {
+  summary: string;
+  sentiment: (typeof sentiments)[number];
   needTag: NeedTag;
   priority: Priority;
   reason: string;
@@ -22,13 +24,13 @@ type OpenAIResponse = {
   }>;
 };
 
-export async function classifyFeedbackSummary(summary: string): Promise<ClassificationSuggestion> {
+export async function classifyFeedbackSummary(sourceText: string): Promise<ClassificationSuggestion> {
   const runtime = getRuntimeEnv();
   const apiKey = runtime.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new ClassificationError("AI 分类服务尚未配置。", 503);
 
-  const safeSummary = maskSensitiveText(summary.trim()).slice(0, 800);
-  if (!safeSummary) throw new ClassificationError("匿名摘要不能为空。", 400);
+  const safeSummary = maskSensitiveText(sourceText.trim()).slice(0, 1200);
+  if (!safeSummary) throw new ClassificationError("匿名反馈内容不能为空。", 400);
 
   const model = runtime.OPENAI_CLASSIFICATION_MODEL?.trim() || DEFAULT_MODEL;
   const configuredTimeout = Number(runtime.OPENAI_CLASSIFICATION_TIMEOUT_MS);
@@ -48,11 +50,13 @@ export async function classifyFeedbackSummary(summary: string): Promise<Classifi
         model,
         store: false,
         reasoning: { effort: "none" },
-        max_output_tokens: 220,
+        max_output_tokens: 420,
         input: [
           {
             role: "system",
-            content: `你是秋芝2046内容运营团队的反馈分类助手。只分析匿名摘要，只建议需求标签与优先级，不执行任何外部操作。
+            content: `你是秋芝2046内容运营团队的反馈整理助手。只分析已经脱敏的反馈内容，不执行任何外部操作。
+请生成不超过120个汉字的匿名摘要，并判断情绪、需求标签和优先级。
+情绪只能是：${sentiments.join("、")}。
 需求标签只能是：${needTags.join("、")}。
 优先级规则：P0=隐私或安全事故、重大错误且需立即处理；P1=明显影响用户完成任务或高价值机会；P2=常规需求与一般问题；P3=低影响建议或信息不足。
 理由不超过60个汉字。置信度用0到1的小数。信息不足时降低置信度，不要臆测。`,
@@ -67,12 +71,14 @@ export async function classifyFeedbackSummary(summary: string): Promise<Classifi
             schema: {
               type: "object",
               properties: {
+                summary: { type: "string", minLength: 1, maxLength: 120 },
+                sentiment: { type: "string", enum: [...sentiments] },
                 needTag: { type: "string", enum: [...needTags] },
                 priority: { type: "string", enum: [...priorities] },
                 reason: { type: "string" },
                 confidence: { type: "number", minimum: 0, maximum: 1 },
               },
-              required: ["needTag", "priority", "reason", "confidence"],
+              required: ["summary", "sentiment", "needTag", "priority", "reason", "confidence"],
               additionalProperties: false,
             },
           },
@@ -123,13 +129,22 @@ export function parseClassificationResponse(payload: OpenAIResponse, model: stri
     throw new ClassificationError("AI 返回格式无效，请人工分类。", 502);
   }
   if (!isClassification(value)) throw new ClassificationError("AI 返回字段无效，请人工分类。", 502);
-  return { ...value, reason: value.reason.trim().slice(0, 120), model };
+  return {
+    ...value,
+    summary: value.summary.trim().slice(0, 120),
+    reason: value.reason.trim().slice(0, 120),
+    model,
+  };
 }
 
 function isClassification(value: unknown): value is Omit<ClassificationSuggestion, "model"> {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
-  return needTags.includes(item.needTag as NeedTag)
+  return typeof item.summary === "string"
+    && item.summary.trim().length > 0
+    && item.summary.trim().length <= 120
+    && sentiments.includes(item.sentiment as (typeof sentiments)[number])
+    && needTags.includes(item.needTag as NeedTag)
     && priorities.includes(item.priority as Priority)
     && typeof item.reason === "string"
     && item.reason.trim().length > 0

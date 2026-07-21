@@ -9,6 +9,8 @@ export const feedbackRecords = sqliteTable("feedback_records", {
   externalId: text("external_id"),
   contentId: text("content_id"),
   authorAlias: text("author_alias"),
+  sourceText: text("source_text"),
+  contentHash: text("content_hash"),
   summary: text("summary").notNull(),
   sentiment: text("sentiment").notNull(),
   needTag: text("need_tag").notNull(),
@@ -16,6 +18,8 @@ export const feedbackRecords = sqliteTable("feedback_records", {
   status: text("status").notNull(),
   assigneeEmail: text("assignee_email"),
   nextAction: text("next_action"),
+  aiSummary: text("ai_summary"),
+  aiSentiment: text("ai_sentiment"),
   aiNeedTag: text("ai_need_tag"),
   aiPriority: text("ai_priority"),
   aiReason: text("ai_reason"),
@@ -28,12 +32,38 @@ export const feedbackRecords = sqliteTable("feedback_records", {
   occurredAt: text("occurred_at").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  version: integer("version").notNull().default(1),
   archivedAt: text("archived_at"),
 }, (table) => [
   uniqueIndex("feedback_workspace_platform_external_idx").on(table.workspaceId, table.platform, table.externalId),
+  uniqueIndex("feedback_workspace_content_hash_idx").on(table.workspaceId, table.contentHash),
   index("feedback_workspace_updated_idx").on(table.workspaceId, table.updatedAt),
   index("feedback_workspace_status_idx").on(table.workspaceId, table.status, table.priority),
 ]);
+
+export const workspaceMembers = sqliteTable("workspace_members", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  email: text("email").notNull(),
+  displayName: text("display_name"),
+  role: text("role").notNull(),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("workspace_member_email_idx").on(table.workspaceId, table.email),
+  index("workspace_member_status_idx").on(table.workspaceId, table.status, table.role),
+]);
+
+export const workspaceEvents = sqliteTable("workspace_events", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  actorEmail: text("actor_email").notNull(),
+  action: text("action").notNull(),
+  subjectEmail: text("subject_email"),
+  changesJson: text("changes_json").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [index("workspace_events_created_idx").on(table.workspaceId, table.createdAt)]);
 
 export const recordEvents = sqliteTable("record_events", {
   id: text("id").primaryKey(),
@@ -74,6 +104,8 @@ export const schemaStatements = [
     external_id TEXT,
     content_id TEXT,
     author_alias TEXT,
+    source_text TEXT,
+    content_hash TEXT,
     summary TEXT NOT NULL,
     sentiment TEXT NOT NULL,
     need_tag TEXT NOT NULL,
@@ -81,6 +113,8 @@ export const schemaStatements = [
     status TEXT NOT NULL,
     assignee_email TEXT,
     next_action TEXT,
+    ai_summary TEXT,
+    ai_sentiment TEXT,
     ai_need_tag TEXT,
     ai_priority TEXT,
     ai_reason TEXT,
@@ -93,13 +127,39 @@ export const schemaStatements = [
     occurred_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
     archived_at TEXT,
-    UNIQUE(workspace_id, platform, external_id)
+    UNIQUE(workspace_id, platform, external_id),
+    UNIQUE(workspace_id, content_hash)
   )`,
   `CREATE INDEX IF NOT EXISTS feedback_workspace_updated_idx
     ON feedback_records (workspace_id, updated_at DESC)`,
   `CREATE INDEX IF NOT EXISTS feedback_workspace_status_idx
     ON feedback_records (workspace_id, status, priority)`,
+  `CREATE TABLE IF NOT EXISTS workspace_members (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    email TEXT NOT NULL,
+    display_name TEXT,
+    role TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(workspace_id, email)
+  )`,
+  `CREATE INDEX IF NOT EXISTS workspace_member_status_idx
+    ON workspace_members (workspace_id, status, role)`,
+  `CREATE TABLE IF NOT EXISTS workspace_events (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    actor_email TEXT NOT NULL,
+    action TEXT NOT NULL,
+    subject_email TEXT,
+    changes_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS workspace_events_created_idx
+    ON workspace_events (workspace_id, created_at DESC)`,
   `CREATE TABLE IF NOT EXISTS record_events (
     id TEXT PRIMARY KEY,
     record_id TEXT NOT NULL,
@@ -150,6 +210,10 @@ export const schemaStatements = [
 ] as const;
 
 export const feedbackAiColumns = {
+  source_text: "TEXT",
+  content_hash: "TEXT",
+  ai_summary: "TEXT",
+  ai_sentiment: "TEXT",
   ai_need_tag: "TEXT",
   ai_priority: "TEXT",
   ai_reason: "TEXT",
@@ -159,6 +223,7 @@ export const feedbackAiColumns = {
   ai_classified_at: "TEXT",
   ai_reviewed_at: "TEXT",
   ai_reviewed_by: "TEXT",
+  version: "INTEGER NOT NULL DEFAULT 1",
 } as const;
 
 export const supportedPlatforms = ["B站", "抖音", "小红书", "视频号", "公众号"] as const;
