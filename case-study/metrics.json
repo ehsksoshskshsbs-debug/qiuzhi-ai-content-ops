@@ -1,0 +1,14 @@
+{
+  "content_id": "QZ-20260721-WEEKLY-01",
+  "is_mock": true,
+  "observation_window": "7 days",
+  "metrics": {
+    "total_views": 186400,
+    "saves": 17420,
+    "comments": 1268,
+    "completion_rate": 0.41,
+    "high_intent_feedback": 286
+  },
+  "notice": "全部指标为作品集模拟值，不代表秋芝2046真实后台数据。"
+}
+

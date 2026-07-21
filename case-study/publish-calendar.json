@@ -1,0 +1,16 @@
+{
+  "content_id": "QZ-20260721-WEEKLY-01",
+  "is_mock": true,
+  "timezone": "Asia/Taipei",
+  "items": [
+    {"day": "D-2", "platform": "小红书", "node": "痛点投票", "owner_role": "内容运营", "status": "已完成", "risk": "无"},
+    {"day": "D-1", "platform": "B站动态", "node": "结果预告", "owner_role": "内容运营", "status": "已完成", "risk": "演示版本待终检"},
+    {"day": "D0", "platform": "B站", "node": "长视频首发", "owner_role": "内容运营", "status": "待审核", "risk": "产品界面需按录制日复核"},
+    {"day": "D0+2h", "platform": "公众号", "node": "完整文档发布", "owner_role": "内容运营", "status": "未开始", "risk": "依赖B站终稿"},
+    {"day": "D1", "platform": "抖音/视频号", "node": "60秒结果版", "owner_role": "短视频运营", "status": "未开始", "risk": "字幕安全区待检查"},
+    {"day": "D2", "platform": "小红书", "node": "八页步骤卡", "owner_role": "图文运营", "status": "未开始", "risk": "需核验平台规则"},
+    {"day": "D3", "platform": "全平台", "node": "评论维护与FAQ", "owner_role": "内容运营", "status": "未开始", "risk": "按P0/P1优先"},
+    {"day": "D7", "platform": "内部", "node": "七日复盘", "owner_role": "内容运营", "status": "未开始", "risk": "仅使用模拟数据"}
+  ]
+}
+

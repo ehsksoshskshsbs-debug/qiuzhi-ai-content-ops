@@ -1,0 +1,5 @@
+interface:
+  display_name: "秋芝 AI 内容运营"
+  short_description: "面向AI博主的多平台内容策划、排期、反馈与复盘助手"
+  default_prompt: "Use $qiuzhi-content-ops to analyze an AI topic and create a traceable multi-platform content plan."
+

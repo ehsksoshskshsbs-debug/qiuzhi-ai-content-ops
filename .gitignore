@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.next/
+.wrangler/
+.dev.vars
+.env*
+*.log
+site/app/_sites-preview/
+
