@@ -36,7 +36,14 @@ test.before(async () => {
       status: "completed",
       output: [{ type: "message", content: [{
         type: "output_text",
-        text: JSON.stringify({ needTag: "报错", priority: "P1", reason: "影响用户完成教程步骤", confidence: 0.86 }),
+        text: JSON.stringify({
+          summary: "用户在教程第三步遇到错误，无法继续完成操作。",
+          sentiment: "负向",
+          needTag: "报错",
+          priority: "P1",
+          reason: "影响用户完成教程步骤",
+          confidence: 0.86,
+        }),
       }] }],
     }));
   });
@@ -85,6 +92,24 @@ test("server-renders the simplified public video guide", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
 
+test("renders the recruiting portfolio and serves its PDF", async () => {
+  const response = await render("/portfolio");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /一套能落到/);
+  assert.match(html, /三个马上能制作的选题/);
+  assert.match(html, /14条模拟反馈/);
+  assert.match(html, /不编造成绩/);
+  assert.match(html, /个人求职作品/);
+  assert.match(html, /href="\/qiuzhi-ai-content-ops-portfolio\.pdf"/);
+  assert.doesNotMatch(html, /href="\/ops"/);
+
+  const pdfResponse = await render("/qiuzhi-ai-content-ops-portfolio.pdf", { accept: "application/pdf" });
+  assert.equal(pdfResponse.status, 200);
+  assert.match(pdfResponse.headers.get("content-type") ?? "", /application\/pdf/);
+  assert.ok(Number(pdfResponse.headers.get("content-length") ?? 0) > 100_000);
+});
+
 test("protects the cloud operations surface before touching D1", async () => {
   const apiResponse = await render("/api/ops/feedback", { accept: "application/json" });
   assert.equal(apiResponse.status, 401);
@@ -93,6 +118,20 @@ test("protects the cloud operations surface before touching D1", async () => {
   const pageResponse = await render("/ops");
   assert.ok([302, 303, 307, 308].includes(pageResponse.status));
   assert.match(pageResponse.headers.get("location") ?? "", /\/signin-with-chatgpt\?return_to=/);
+});
+
+test("renders the authorized team workbench navigation", async () => {
+  const response = await render("/ops", {
+    accept: "text/html",
+    "oai-authenticated-user-email": "test@example.com",
+  });
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /反馈台账/);
+  assert.match(html, /运营数据/);
+  assert.match(html, /团队/);
+  assert.match(html, /管理员/);
+  assert.match(html, /AI 只给摘要、分类和优先级建议/);
 });
 
 test("creates, masks and audits an authorized feedback record in D1", async () => {
@@ -124,12 +163,19 @@ test("creates, masks and audits an authorized feedback record in D1", async () =
   const updateResponse = await fetch(`${origin}/api/ops/feedback/${created.record.id}`, {
     method: "PATCH",
     headers: authenticated,
-    body: JSON.stringify({ status: "处理中", nextAction: "整理成 FAQ" }),
+    body: JSON.stringify({ status: "处理中", nextAction: "整理成 FAQ", version: created.record.version }),
   });
   assert.equal(updateResponse.status, 200);
   const updated = await updateResponse.json();
   assert.equal(updated.record.status, "处理中");
   assert.equal(updated.events.length, 2);
+
+  const staleResponse = await fetch(`${origin}/api/ops/feedback/${created.record.id}`, {
+    method: "PATCH",
+    headers: authenticated,
+    body: JSON.stringify({ status: "已解决", version: created.record.version }),
+  });
+  assert.equal(staleResponse.status, 409);
 });
 
 test("keeps AI suggestions separate until a human confirms them", async () => {
@@ -161,6 +207,8 @@ test("keeps AI suggestions separate until a human confirms them", async () => {
   const classified = await classifyResponse.json();
   assert.equal(classified.record.need_tag, "教程需求");
   assert.equal(classified.record.priority, "P2");
+  assert.equal(classified.record.ai_summary, "用户在教程第三步遇到错误，无法继续完成操作。");
+  assert.equal(classified.record.ai_sentiment, "负向");
   assert.equal(classified.record.ai_need_tag, "报错");
   assert.equal(classified.record.ai_priority, "P1");
   assert.equal(classified.record.ai_review_status, "待审核");
@@ -169,14 +217,51 @@ test("keeps AI suggestions separate until a human confirms them", async () => {
   const reviewResponse = await fetch(`${origin}/api/ops/feedback/${created.record.id}/classification-review`, {
     method: "POST",
     headers: authenticated,
-    body: JSON.stringify({ needTag: "报错", priority: "P1" }),
+    body: JSON.stringify({
+      summary: classified.record.ai_summary,
+      sentiment: classified.record.ai_sentiment,
+      needTag: "报错",
+      priority: "P1",
+    }),
   });
   assert.equal(reviewResponse.status, 200);
   const reviewed = await reviewResponse.json();
   assert.equal(reviewed.record.need_tag, "报错");
   assert.equal(reviewed.record.priority, "P1");
+  assert.equal(reviewed.record.sentiment, "负向");
+  assert.equal(reviewed.record.summary, "用户在教程第三步遇到错误，无法继续完成操作。");
   assert.equal(reviewed.record.ai_review_status, "已接受");
   assert.equal(reviewed.events[0].action, "接受 AI 分类");
+});
+
+test("enforces admin, member and read-only permissions in D1", async () => {
+  const adminHeaders = {
+    accept: "application/json",
+    "content-type": "application/json",
+    "oai-authenticated-user-email": "test@example.com",
+  };
+  const readonlyEmail = `viewer-${process.pid}@example.com`;
+  const addResponse = await fetch(`${origin}/api/ops/team`, {
+    method: "POST",
+    headers: adminHeaders,
+    body: JSON.stringify({ email: readonlyEmail, displayName: "只读测试成员", role: "只读" }),
+  });
+  assert.equal(addResponse.status, 201);
+
+  const readonlyHeaders = {
+    accept: "application/json",
+    "content-type": "application/json",
+    "oai-authenticated-user-email": readonlyEmail,
+  };
+  const listResponse = await fetch(`${origin}/api/ops/feedback`, { headers: readonlyHeaders });
+  assert.equal(listResponse.status, 200);
+
+  const createResponse = await fetch(`${origin}/api/ops/feedback`, {
+    method: "POST",
+    headers: readonlyHeaders,
+    body: JSON.stringify({ platform: "B站", sourceType: "评论", summary: "只读成员不能写入。" }),
+  });
+  assert.equal(createResponse.status, 403);
 });
 
 test("falls back safely on refusals, invalid output and timeouts", async () => {

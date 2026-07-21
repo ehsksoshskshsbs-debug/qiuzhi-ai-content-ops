@@ -5,13 +5,15 @@ import {
   markAiClassificationFailed,
   saveAiSuggestion,
 } from "../../../../../../lib/feedback-repository";
-import { getOpsAccess, opsAccessResponse } from "../../../../../ops-auth";
+import { getOpsAccess, opsAccessResponse, opsRoleResponse } from "../../../../../ops-auth";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(_: Request, context: RouteContext) {
   const access = await getOpsAccess();
   if (!access.ok) return opsAccessResponse(access);
+  const denied = opsRoleResponse(access, ["管理员", "成员"]);
+  if (denied) return denied;
   const { id } = await context.params;
 
   const started = await beginAiClassification(access.workspaceId, id);
@@ -20,7 +22,7 @@ export async function POST(_: Request, context: RouteContext) {
   try {
     const current = await getFeedback(access.workspaceId, id);
     if (!current) return Response.json({ error: "记录不存在。" }, { status: 404 });
-    const suggestion = await classifyFeedbackSummary(current.record.summary);
+    const suggestion = await classifyFeedbackSummary(current.record.source_text ?? current.record.summary);
     const result = await saveAiSuggestion(access.workspaceId, id, suggestion);
     return Response.json(result);
   } catch (error) {

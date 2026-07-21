@@ -1,5 +1,5 @@
 import { createFeedback, listFeedback } from "../../../../lib/feedback-repository";
-import { getOpsAccess, opsAccessResponse } from "../../../ops-auth";
+import { getOpsAccess, opsAccessResponse, opsRoleResponse } from "../../../ops-auth";
 
 export async function GET(request: Request) {
   const access = await getOpsAccess();
@@ -19,6 +19,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const access = await getOpsAccess();
   if (!access.ok) return opsAccessResponse(access);
+  const denied = opsRoleResponse(access, ["管理员", "成员"]);
+  if (denied) return denied;
   const result = await createFeedback(access.workspaceId, access.user.email, await request.json());
   if ("error" in result) return Response.json({ error: result.error }, { status: result.status });
   return Response.json(result.record, { status: result.status });

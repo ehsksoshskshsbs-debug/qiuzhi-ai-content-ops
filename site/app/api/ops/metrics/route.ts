@@ -1,5 +1,5 @@
 import { ensureSchema } from "../../../../db";
-import { getOpsAccess, opsAccessResponse } from "../../../ops-auth";
+import { getOpsAccess, opsAccessResponse, opsRoleResponse } from "../../../ops-auth";
 import { platforms } from "../../../../lib/ops-domain";
 
 export async function GET() {
@@ -17,6 +17,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const access = await getOpsAccess();
   if (!access.ok) return opsAccessResponse(access);
+  const denied = opsRoleResponse(access, ["管理员", "成员"]);
+  if (denied) return denied;
   const body = await request.json() as Record<string, unknown>;
   const platform = String(body.platform ?? "");
   const contentId = String(body.contentId ?? "").trim().slice(0, 160);

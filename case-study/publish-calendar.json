@@ -3,14 +3,13 @@
   "is_mock": true,
   "timezone": "Asia/Taipei",
   "items": [
-    {"day": "D-2", "platform": "小红书", "node": "痛点投票", "owner_role": "内容运营", "status": "已完成", "risk": "无"},
-    {"day": "D-1", "platform": "B站动态", "node": "结果预告", "owner_role": "内容运营", "status": "已完成", "risk": "演示版本待终检"},
-    {"day": "D0", "platform": "B站", "node": "长视频首发", "owner_role": "内容运营", "status": "待审核", "risk": "产品界面需按录制日复核"},
-    {"day": "D0+2h", "platform": "公众号", "node": "完整文档发布", "owner_role": "内容运营", "status": "未开始", "risk": "依赖B站终稿"},
-    {"day": "D1", "platform": "抖音/视频号", "node": "60秒结果版", "owner_role": "短视频运营", "status": "未开始", "risk": "字幕安全区待检查"},
-    {"day": "D2", "platform": "小红书", "node": "八页步骤卡", "owner_role": "图文运营", "status": "未开始", "risk": "需核验平台规则"},
-    {"day": "D3", "platform": "全平台", "node": "评论维护与FAQ", "owner_role": "内容运营", "status": "未开始", "risk": "按P0/P1优先"},
-    {"day": "D7", "platform": "内部", "node": "七日复盘", "owner_role": "内容运营", "status": "未开始", "risk": "仅使用模拟数据"}
+    {"node_id":"N-01","phase":"预热","day":"D-2","platform":"小红书","deliverable":"周报痛点投票：记录难 / 表达难","owner_role":"内容运营","dependencies":["选题确认","隐私文案确认"],"status":"模拟·待执行","risk":"样本小，只作需求信号","proof_link":"","notes":""},
+    {"node_id":"N-02","phase":"预告","day":"D-1","platform":"B站动态","deliverable":"五天日志→周报结果对比图","owner_role":"内容运营","dependencies":["演示录屏终检"],"status":"模拟·待执行","risk":"界面以发布日版本为准","proof_link":"","notes":""},
+    {"node_id":"N-03","phase":"首发","day":"D0 10:00","platform":"B站","deliverable":"10分钟完整教程 + 置顶评论","owner_role":"内容运营","dependencies":["字幕","封面","事实核验"],"status":"模拟·待审核","risk":"标题承诺不可写成全自动","proof_link":"","notes":""},
+    {"node_id":"N-04","phase":"承接","day":"D0 12:00","platform":"公众号","deliverable":"完整方法文章 + 可复制模板","owner_role":"图文运营","dependencies":["B站终稿","资料链接"],"status":"模拟·待执行","risk":"外链和资料权限发布前核验","proof_link":"","notes":""},
+    {"node_id":"N-05","phase":"二次分发","day":"D1","platform":"抖音 / 视频号","deliverable":"两版差异化60秒短视频","owner_role":"短视频运营","dependencies":["长视频核心镜头"],"status":"模拟·待执行","risk":"字幕安全区与节奏需分别检查","proof_link":"","notes":""},
+    {"node_id":"N-06","phase":"二次分发","day":"D2","platform":"小红书","deliverable":"8页步骤卡 + 正文","owner_role":"图文运营","dependencies":["模板截图","逐页校对"],"status":"模拟·待执行","risk":"平台规则发布前核验","proof_link":"","notes":""},
+    {"node_id":"N-07","phase":"评论维护","day":"D3","platform":"全平台","deliverable":"P0/P1优先回复，更新FAQ与去重台账","owner_role":"内容运营","dependencies":["反馈匿名化","人工确认"],"status":"模拟·待执行","risk":"不自动回复，不推断身份","proof_link":"","notes":""},
+    {"node_id":"N-08","phase":"复盘","day":"D7","platform":"内部","deliverable":"数据对基线、问题结构与下一轮实验","owner_role":"内容运营","dependencies":["7日数据快照","反馈台账"],"status":"模拟·待执行","risk":"相关性不写成因果","proof_link":"","notes":""}
   ]
 }
-

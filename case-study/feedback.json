@@ -1,17 +1,21 @@
 {
   "content_id": "QZ-20260721-WEEKLY-01",
   "is_mock": true,
+  "notice": "全部为匿名模拟反馈，只用于展示去重、分级和人工确认流程。",
   "records": [
-    {"id":"F-001","platform":"B站","text":"公司电脑不能装软件，有网页版方法吗？","sentiment":"求助","tag":"安装与环境","priority":"P1","status":"待处理"},
-    {"id":"F-002","platform":"小红书","text":"三行模板可以直接复制吗？","sentiment":"中性","tag":"模板或资料","priority":"P2","status":"待回复"},
-    {"id":"F-003","platform":"B站","text":"它会不会自己编结果？","sentiment":"中性","tag":"功能限制","priority":"P1","status":"已纳入FAQ"},
-    {"id":"F-004","platform":"视频号","text":"最需要的是月报版本。","sentiment":"正向","tag":"新选题建议","priority":"P2","status":"已入选题库"},
-    {"id":"F-005","platform":"公众号","text":"客户信息能直接放进去吗？","sentiment":"求助","tag":"纠错与事实核验","priority":"P0","status":"需置顶提醒"},
-    {"id":"F-006","platform":"抖音","text":"能不能做一个手机端的？","sentiment":"中性","tag":"新选题建议","priority":"P2","status":"观察"},
-    {"id":"F-007","platform":"B站","text":"跨周任务怎么统计？","sentiment":"求助","tag":"步骤看不懂","priority":"P2","status":"待回复"},
-    {"id":"F-008","platform":"小红书","text":"终于不是让AI瞎编周报了。","sentiment":"正向","tag":"功能限制","priority":"P3","status":"留档"},
-    {"id":"F-009","platform":"公众号","text":"团队一起记录有没有统一格式？","sentiment":"求助","tag":"新选题建议","priority":"P2","status":"已入选题库"},
-    {"id":"F-010","platform":"B站","text":"提示词里待补充这个设计很好。","sentiment":"正向","tag":"模板或资料","priority":"P3","status":"留档"}
+    {"feedback_id":"F-001","dedupe_group":"G-01","platform":"B站","anonymized_text":"公司电脑不能安装软件，有网页版方法吗？","duplicate_count":3,"sentiment":"求助","need_tag":"安装与环境","priority":"P1","reply_needed":true,"status":"待人工确认","recommended_action":"置顶补充适用环境，不承诺未验证方案","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-002","dedupe_group":"G-01","platform":"小红书","anonymized_text":"单位电脑没权限装东西，能不能不用安装？","duplicate_count":3,"sentiment":"求助","need_tag":"安装与环境","priority":"P1","reply_needed":true,"status":"已并入G-01","recommended_action":"合并计数，不重复创建需求","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-003","dedupe_group":"G-01","platform":"视频号","anonymized_text":"办公电脑限制安装，这个方法还能用吗？","duplicate_count":3,"sentiment":"中性","need_tag":"安装与环境","priority":"P1","reply_needed":true,"status":"已并入G-01","recommended_action":"收集允许使用的环境再补FAQ","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-004","dedupe_group":"G-02","platform":"小红书","anonymized_text":"三行模板可以直接复制吗？","duplicate_count":2,"sentiment":"中性","need_tag":"模板或资料","priority":"P2","reply_needed":true,"status":"待回复","recommended_action":"回复模板位置并记录领取路径","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-005","dedupe_group":"G-02","platform":"公众号","anonymized_text":"求一个可以直接用的 Markdown 模板。","duplicate_count":2,"sentiment":"正向","need_tag":"模板或资料","priority":"P2","reply_needed":true,"status":"已并入G-02","recommended_action":"统一指向同一份模板","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-006","dedupe_group":"G-03","platform":"B站","anonymized_text":"它会不会把计划当成已经完成的结果？","duplicate_count":2,"sentiment":"担忧","need_tag":"功能限制","priority":"P1","reply_needed":true,"status":"待人工确认","recommended_action":"补充三轮核对清单和失败示例","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-007","dedupe_group":"G-03","platform":"抖音","anonymized_text":"AI 会不会自己编数字？","duplicate_count":2,"sentiment":"担忧","need_tag":"功能限制","priority":"P1","reply_needed":true,"status":"已并入G-03","recommended_action":"强调只用事实与待补充规则","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-008","dedupe_group":"G-04","platform":"公众号","anonymized_text":"客户信息可以直接放进去整理吗？","duplicate_count":1,"sentiment":"求助","need_tag":"隐私与安全","priority":"P0","reply_needed":true,"status":"立即处理","recommended_action":"明确不可直接上传，视频与资料同步置顶提醒","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-009","dedupe_group":"G-05","platform":"B站","anonymized_text":"跨周任务怎么统计才不会重复？","duplicate_count":1,"sentiment":"求助","need_tag":"步骤看不懂","priority":"P2","reply_needed":true,"status":"待回复","recommended_action":"给跨周任务编号示例，观察是否做进阶版","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-010","dedupe_group":"G-06","platform":"视频号","anonymized_text":"最需要月报版本，周报太短了。","duplicate_count":2,"sentiment":"正向","need_tag":"新选题建议","priority":"P2","reply_needed":true,"status":"已入选题池","recommended_action":"统计7日同类需求，达到阈值再立项","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-011","dedupe_group":"G-06","platform":"小红书","anonymized_text":"可以做月底汇总版吗？","duplicate_count":2,"sentiment":"正向","need_tag":"新选题建议","priority":"P2","reply_needed":false,"status":"已并入G-06","recommended_action":"与月报需求合并","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-012","dedupe_group":"G-07","platform":"公众号","anonymized_text":"团队一起记录有没有统一格式？","duplicate_count":1,"sentiment":"求助","need_tag":"新选题建议","priority":"P2","reply_needed":true,"status":"已入选题池","recommended_action":"评估协作权限和负责人字段","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-013","dedupe_group":"G-08","platform":"B站","anonymized_text":"提示词里的【待补充】设计很好，至少不会瞎写。","duplicate_count":1,"sentiment":"正向","need_tag":"有效表达","priority":"P3","reply_needed":false,"status":"留档","recommended_action":"保留该表达并观察收藏关联","owner_role":"内容运营","is_mock":true},
+    {"feedback_id":"F-014","dedupe_group":"G-09","platform":"小红书","anonymized_text":"手机端能不能完成每天三行记录？","duplicate_count":1,"sentiment":"中性","need_tag":"新选题建议","priority":"P2","reply_needed":true,"status":"观察","recommended_action":"先核验跨端工作流，不提前承诺","owner_role":"内容运营","is_mock":true}
   ]
 }
-

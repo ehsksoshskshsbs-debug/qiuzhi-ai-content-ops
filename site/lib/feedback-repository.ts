@@ -1,5 +1,5 @@
 import { ensureSchema } from "../db";
-import { needTags, priorities, makeTraceCode, validateFeedbackInput, type FeedbackInput, type NeedTag, type Priority, type ValidFeedbackInput } from "./ops-domain";
+import { needTags, priorities, sentiments, makeTraceCode, validateFeedbackInput, type FeedbackInput, type NeedTag, type Priority, type ValidFeedbackInput } from "./ops-domain";
 
 export type FeedbackRow = {
   id: string;
@@ -10,6 +10,8 @@ export type FeedbackRow = {
   external_id: string | null;
   content_id: string | null;
   author_alias: string | null;
+  source_text: string | null;
+  content_hash: string | null;
   summary: string;
   sentiment: string;
   need_tag: string;
@@ -17,6 +19,8 @@ export type FeedbackRow = {
   status: string;
   assignee_email: string | null;
   next_action: string | null;
+  ai_summary: string | null;
+  ai_sentiment: string | null;
   ai_need_tag: string | null;
   ai_priority: string | null;
   ai_reason: string | null;
@@ -29,6 +33,7 @@ export type FeedbackRow = {
   occurred_at: string;
   created_at: string;
   updated_at: string;
+  version: number;
   archived_at: string | null;
 };
 
@@ -62,9 +67,9 @@ export async function listFeedback(workspaceId: string, filters: FeedbackFilters
   addEquals(conditions, bindings, "assignee_email", filters.assignee);
 
   if (filters.search?.trim()) {
-    conditions.push("(trace_code LIKE ? OR summary LIKE ? OR content_id LIKE ?)");
+    conditions.push("(trace_code LIKE ? OR source_text LIKE ? OR summary LIKE ? OR content_id LIKE ?)");
     const search = `%${filters.search.trim().slice(0, 100)}%`;
-    bindings.push(search, search, search);
+    bindings.push(search, search, search, search);
   }
 
   const query = `SELECT * FROM feedback_records
@@ -107,18 +112,21 @@ export async function createFeedback(workspaceId: string, actorEmail: string, in
   const id = crypto.randomUUID();
   const traceCode = makeTraceCode();
   const now = new Date().toISOString();
+  const contentHash = value.externalId
+    ? null
+    : await makeContentHash(workspaceId, value.platform, value.sourceText, value.occurredAt);
   try {
     await db.batch([
       db.prepare(
         `INSERT INTO feedback_records
           (id, trace_code, workspace_id, platform, source_type, external_id, content_id,
-           author_alias, summary, sentiment, need_tag, priority, status, assignee_email,
-           next_action, occurred_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           author_alias, source_text, content_hash, summary, sentiment, need_tag, priority, status,
+           assignee_email, next_action, occurred_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         id, traceCode, workspaceId, value.platform, value.sourceType,
         value.externalId ?? null, value.contentId ?? null, value.authorAlias ?? null,
-        value.summary, value.sentiment, value.needTag, value.priority, value.status,
+        value.sourceText, contentHash, value.summary, value.sentiment, value.needTag, value.priority, value.status,
         value.assigneeEmail ?? null, value.nextAction ?? null, value.occurredAt, now, now,
       ),
       db.prepare(
@@ -132,7 +140,7 @@ export async function createFeedback(workspaceId: string, actorEmail: string, in
     ]);
   } catch (error) {
     if (String(error).includes("UNIQUE")) {
-      return { error: "该平台记录已存在，已阻止重复导入。", status: 409 as const };
+      return { error: "检测到重复反馈，已阻止再次写入。", status: 409 as const };
     }
     throw error;
   }
@@ -147,6 +155,9 @@ export async function updateFeedback(
 ) {
   const current = await getFeedback(workspaceId, id);
   if (!current) return { error: "记录不存在。", status: 404 as const };
+  if (patch.version !== current.record.version) {
+    return { error: "记录已被其他成员更新，请刷新后重试。", status: 409 as const };
+  }
 
   const merged: FeedbackInput = {
     platform: patch.platform ?? current.record.platform,
@@ -154,6 +165,7 @@ export async function updateFeedback(
     externalId: patch.externalId ?? current.record.external_id ?? undefined,
     contentId: patch.contentId ?? current.record.content_id ?? undefined,
     authorAlias: patch.authorAlias ?? current.record.author_alias ?? undefined,
+    sourceText: patch.sourceText ?? current.record.source_text ?? current.record.summary,
     summary: patch.summary ?? current.record.summary,
     sentiment: patch.sentiment ?? current.record.sentiment,
     needTag: patch.needTag ?? current.record.need_tag,
@@ -162,6 +174,7 @@ export async function updateFeedback(
     assigneeEmail: patch.assigneeEmail ?? current.record.assignee_email ?? undefined,
     nextAction: patch.nextAction ?? current.record.next_action ?? undefined,
     occurredAt: patch.occurredAt ?? current.record.occurred_at,
+    version: patch.version,
   };
   const validation = validateFeedbackInput(merged);
   if (!validation.value) return { error: validation.error ?? "记录格式无效。", status: 400 as const };
@@ -173,29 +186,36 @@ export async function updateFeedback(
   const db = await ensureSchema();
   const now = new Date().toISOString();
   const archivedAt = value.status === "已归档" ? now : null;
-  await db.batch([
-    db.prepare(
+  const contentHash = value.externalId
+    ? null
+    : await makeContentHash(workspaceId, value.platform, value.sourceText, value.occurredAt);
+  const update = await db.prepare(
       `UPDATE feedback_records SET
         platform = ?, source_type = ?, external_id = ?, content_id = ?, author_alias = ?,
-        summary = ?, sentiment = ?, need_tag = ?, priority = ?, status = ?, assignee_email = ?,
-        next_action = ?, occurred_at = ?, updated_at = ?, archived_at = ?
-       WHERE id = ? AND workspace_id = ?`,
+        source_text = ?, content_hash = ?, summary = ?, sentiment = ?, need_tag = ?, priority = ?,
+        status = ?, assignee_email = ?, next_action = ?, occurred_at = ?, updated_at = ?,
+        archived_at = ?, version = version + 1
+       WHERE id = ? AND workspace_id = ? AND version = ?`,
     ).bind(
       value.platform, value.sourceType, value.externalId ?? null, value.contentId ?? null,
-      value.authorAlias ?? null, value.summary, value.sentiment, value.needTag, value.priority,
+      value.authorAlias ?? null, value.sourceText, contentHash, value.summary, value.sentiment, value.needTag, value.priority,
       value.status, value.assigneeEmail ?? null, value.nextAction ?? null, value.occurredAt,
-      now, archivedAt, id, workspaceId,
-    ),
-    db.prepare(
+      now, archivedAt, id, workspaceId, current.record.version,
+    ).run();
+  if ((update.meta?.changes ?? 0) === 0) {
+    return { error: "记录已被其他成员更新，请刷新后重试。", status: 409 as const };
+  }
+  await db.prepare(
       `INSERT INTO record_events
         (id, record_id, workspace_id, actor_email, action, changes_json, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(crypto.randomUUID(), id, workspaceId, actorEmail, "更新记录", JSON.stringify(changes), now),
-  ]);
+    ).bind(crypto.randomUUID(), id, workspaceId, actorEmail, "更新记录", JSON.stringify(changes), now).run();
   return { record: await getFeedback(workspaceId, id), status: 200 as const };
 }
 
 export type AiSuggestion = {
+  summary: string;
+  sentiment: (typeof sentiments)[number];
   needTag: NeedTag;
   priority: Priority;
   reason: string;
@@ -226,12 +246,13 @@ export async function saveAiSuggestion(workspaceId: string, id: string, suggesti
   const now = new Date().toISOString();
   await db.prepare(
     `UPDATE feedback_records SET
-      ai_need_tag = ?, ai_priority = ?, ai_reason = ?, ai_confidence = ?,
+      ai_summary = ?, ai_sentiment = ?, ai_need_tag = ?, ai_priority = ?, ai_reason = ?, ai_confidence = ?,
       ai_review_status = '待审核', ai_model = ?, ai_classified_at = ?,
-      ai_reviewed_at = NULL, ai_reviewed_by = NULL
+      ai_reviewed_at = NULL, ai_reviewed_by = NULL, version = version + 1
      WHERE id = ? AND workspace_id = ?`,
   ).bind(
-    suggestion.needTag, suggestion.priority, suggestion.reason.slice(0, 240), suggestion.confidence,
+    suggestion.summary, suggestion.sentiment, suggestion.needTag, suggestion.priority,
+    suggestion.reason.slice(0, 240), suggestion.confidence,
     suggestion.model, now, id, workspaceId,
   ).run();
   return getFeedback(workspaceId, id);
@@ -240,7 +261,7 @@ export async function saveAiSuggestion(workspaceId: string, id: string, suggesti
 export async function markAiClassificationFailed(workspaceId: string, id: string) {
   const db = await ensureSchema();
   await db.prepare(
-    `UPDATE feedback_records SET ai_review_status = '分类失败', ai_classified_at = ?
+    `UPDATE feedback_records SET ai_review_status = '分类失败', ai_classified_at = ?, version = version + 1
      WHERE id = ? AND workspace_id = ?`,
   ).bind(new Date().toISOString(), id, workspaceId).run();
 }
@@ -249,28 +270,33 @@ export async function reviewAiSuggestion(
   workspaceId: string,
   actorEmail: string,
   id: string,
-  input: { needTag?: string; priority?: string },
+  input: { summary?: string; sentiment?: string; needTag?: string; priority?: string },
 ) {
   const current = await getFeedback(workspaceId, id);
   if (!current) return { error: "记录不存在。", status: 404 as const };
-  if (current.record.ai_review_status !== "待审核" || !current.record.ai_need_tag || !current.record.ai_priority) {
+  if (current.record.ai_review_status !== "待审核" || !current.record.ai_summary || !current.record.ai_sentiment || !current.record.ai_need_tag || !current.record.ai_priority) {
     return { error: "当前没有等待确认的 AI 建议。", status: 409 as const };
   }
-  if (!needTags.includes(input.needTag as NeedTag) || !priorities.includes(input.priority as Priority)) {
-    return { error: "需求标签或优先级无效。", status: 400 as const };
+  const summary = input.summary?.trim().slice(0, 120) ?? "";
+  if (!summary || !sentiments.includes(input.sentiment as (typeof sentiments)[number]) || !needTags.includes(input.needTag as NeedTag) || !priorities.includes(input.priority as Priority)) {
+    return { error: "摘要、情绪、需求标签或优先级无效。", status: 400 as const };
   }
 
+  const sentiment = input.sentiment as (typeof sentiments)[number];
   const needTag = input.needTag as NeedTag;
   const priority = input.priority as Priority;
-  const accepted = needTag === current.record.ai_need_tag && priority === current.record.ai_priority;
+  const accepted = summary === current.record.ai_summary
+    && sentiment === current.record.ai_sentiment
+    && needTag === current.record.ai_need_tag
+    && priority === current.record.ai_priority;
   const now = new Date().toISOString();
   const db = await ensureSchema();
   await db.batch([
     db.prepare(
-      `UPDATE feedback_records SET need_tag = ?, priority = ?, ai_review_status = ?,
-        ai_reviewed_at = ?, ai_reviewed_by = ?, updated_at = ?
+      `UPDATE feedback_records SET summary = ?, sentiment = ?, need_tag = ?, priority = ?, ai_review_status = ?,
+        ai_reviewed_at = ?, ai_reviewed_by = ?, updated_at = ?, version = version + 1
        WHERE id = ? AND workspace_id = ? AND ai_review_status = '待审核'`,
-    ).bind(needTag, priority, accepted ? "已接受" : "已修改", now, actorEmail, now, id, workspaceId),
+    ).bind(summary, sentiment, needTag, priority, accepted ? "已接受" : "已修改", now, actorEmail, now, id, workspaceId),
     db.prepare(
       `INSERT INTO record_events
         (id, record_id, workspace_id, actor_email, action, changes_json, created_at)
@@ -280,8 +306,13 @@ export async function reviewAiSuggestion(
       crypto.randomUUID(), actorEmail,
       accepted ? "接受 AI 分类" : "修改 AI 分类",
       JSON.stringify({
-        ai_suggestion: { need_tag: current.record.ai_need_tag, priority: current.record.ai_priority },
-        final: { need_tag: needTag, priority },
+        ai_suggestion: {
+          summary: current.record.ai_summary,
+          sentiment: current.record.ai_sentiment,
+          need_tag: current.record.ai_need_tag,
+          priority: current.record.ai_priority,
+        },
+        final: { summary, sentiment, need_tag: needTag, priority },
       }),
       now, id, workspaceId, now, actorEmail,
     ),
@@ -299,6 +330,7 @@ function addEquals(conditions: string[], bindings: unknown[], column: string, va
 function diffRecord(current: FeedbackRow, next: ValidFeedbackInput) {
   const pairs: Array<[string, unknown, unknown]> = [
     ["platform", current.platform, next.platform], ["source_type", current.source_type, next.sourceType],
+    ["source_text", current.source_text, next.sourceText],
     ["summary", current.summary, next.summary], ["sentiment", current.sentiment, next.sentiment],
     ["need_tag", current.need_tag, next.needTag], ["priority", current.priority, next.priority],
     ["status", current.status, next.status], ["assignee_email", current.assignee_email, next.assigneeEmail ?? null],
@@ -307,4 +339,10 @@ function diffRecord(current: FeedbackRow, next: ValidFeedbackInput) {
   return Object.fromEntries(
     pairs.filter(([, before, after]) => before !== after).map(([key, before, after]) => [key, { before, after }]),
   );
+}
+
+async function makeContentHash(workspaceId: string, platform: string, sourceText: string, occurredAt: string) {
+  const normalized = `${workspaceId}|${platform}|${occurredAt.slice(0, 10)}|${sourceText.replace(/\s+/g, " ").trim().toLowerCase()}`;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }

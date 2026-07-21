@@ -9,3 +9,4 @@ dist/
 *.tsbuildinfo
 .superpowers/
 site/app/_sites-preview/
+tmp/

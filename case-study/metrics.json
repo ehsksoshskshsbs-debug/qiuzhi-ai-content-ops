@@ -1,14 +1,14 @@
 {
   "content_id": "QZ-20260721-WEEKLY-01",
   "is_mock": true,
-  "observation_window": "7 days",
-  "metrics": {
-    "total_views": 186400,
-    "saves": 17420,
-    "comments": 1268,
-    "completion_rate": 0.41,
-    "high_intent_feedback": 286
-  },
-  "notice": "全部指标为作品集模拟值，不代表秋芝2046真实后台数据。"
+  "stage": "pre_publish_review_design",
+  "observation_window": "7 days after publication",
+  "metrics": [
+    {"name":"点击意愿","measure":"B站封面点击率与来源结构","success":"高于账号近10期同长度教程中位数"},
+    {"name":"内容理解","measure":"30秒留存、关键步骤留存与完播率","success":"关键步骤无明显断崖，完播不低于同长度基线"},
+    {"name":"复用价值","measure":"收藏率、模板领取与已开始记录反馈","success":"高于同类教程中位数并出现可验证行动反馈"},
+    {"name":"需求质量","measure":"去重问题数、P0/P1占比与高意向需求","success":"高频问题可进入FAQ或下一期选题"},
+    {"name":"安全边界","measure":"隐私误解、自动监控误解与未解决P0数量","success":"未解决P0为0，公开回复均经人工确认"}
+  ],
+  "notice": "不使用虚构结果证明内容成功；以上是作品集模拟验收标准。"
 }
-
