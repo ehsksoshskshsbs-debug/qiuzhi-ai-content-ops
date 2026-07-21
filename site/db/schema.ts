@@ -16,6 +16,15 @@ export const feedbackRecords = sqliteTable("feedback_records", {
   status: text("status").notNull(),
   assigneeEmail: text("assignee_email"),
   nextAction: text("next_action"),
+  aiNeedTag: text("ai_need_tag"),
+  aiPriority: text("ai_priority"),
+  aiReason: text("ai_reason"),
+  aiConfidence: real("ai_confidence"),
+  aiReviewStatus: text("ai_review_status"),
+  aiModel: text("ai_model"),
+  aiClassifiedAt: text("ai_classified_at"),
+  aiReviewedAt: text("ai_reviewed_at"),
+  aiReviewedBy: text("ai_reviewed_by"),
   occurredAt: text("occurred_at").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -72,6 +81,15 @@ export const schemaStatements = [
     status TEXT NOT NULL,
     assignee_email TEXT,
     next_action TEXT,
+    ai_need_tag TEXT,
+    ai_priority TEXT,
+    ai_reason TEXT,
+    ai_confidence REAL,
+    ai_review_status TEXT,
+    ai_model TEXT,
+    ai_classified_at TEXT,
+    ai_reviewed_at TEXT,
+    ai_reviewed_by TEXT,
     occurred_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -130,5 +148,17 @@ export const schemaStatements = [
     finished_at TEXT
   )`,
 ] as const;
+
+export const feedbackAiColumns = {
+  ai_need_tag: "TEXT",
+  ai_priority: "TEXT",
+  ai_reason: "TEXT",
+  ai_confidence: "REAL",
+  ai_review_status: "TEXT",
+  ai_model: "TEXT",
+  ai_classified_at: "TEXT",
+  ai_reviewed_at: "TEXT",
+  ai_reviewed_by: "TEXT",
+} as const;
 
 export const supportedPlatforms = ["B站", "抖音", "小红书", "视频号", "公众号"] as const;

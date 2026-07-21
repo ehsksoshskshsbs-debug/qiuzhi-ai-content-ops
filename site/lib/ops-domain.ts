@@ -4,6 +4,10 @@ export const sentiments = ["正向", "中性", "负向"] as const;
 export const needTags = ["教程需求", "报错", "商务", "隐私", "招聘", "活动", "其他"] as const;
 export const priorities = ["P0", "P1", "P2", "P3"] as const;
 export const statuses = ["待处理", "处理中", "等待外部", "已解决", "已归档"] as const;
+export const aiReviewStatuses = ["分类中", "待审核", "已接受", "已修改", "分类失败"] as const;
+
+export type NeedTag = (typeof needTags)[number];
+export type Priority = (typeof priorities)[number];
 
 export type FeedbackInput = {
   platform?: string;

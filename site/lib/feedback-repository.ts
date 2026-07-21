@@ -1,5 +1,5 @@
 import { ensureSchema } from "../db";
-import { makeTraceCode, validateFeedbackInput, type FeedbackInput, type ValidFeedbackInput } from "./ops-domain";
+import { needTags, priorities, makeTraceCode, validateFeedbackInput, type FeedbackInput, type NeedTag, type Priority, type ValidFeedbackInput } from "./ops-domain";
 
 export type FeedbackRow = {
   id: string;
@@ -17,6 +17,15 @@ export type FeedbackRow = {
   status: string;
   assignee_email: string | null;
   next_action: string | null;
+  ai_need_tag: string | null;
+  ai_priority: string | null;
+  ai_reason: string | null;
+  ai_confidence: number | null;
+  ai_review_status: string | null;
+  ai_model: string | null;
+  ai_classified_at: string | null;
+  ai_reviewed_at: string | null;
+  ai_reviewed_by: string | null;
   occurred_at: string;
   created_at: string;
   updated_at: string;
@@ -182,6 +191,100 @@ export async function updateFeedback(
         (id, record_id, workspace_id, actor_email, action, changes_json, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).bind(crypto.randomUUID(), id, workspaceId, actorEmail, "更新记录", JSON.stringify(changes), now),
+  ]);
+  return { record: await getFeedback(workspaceId, id), status: 200 as const };
+}
+
+export type AiSuggestion = {
+  needTag: NeedTag;
+  priority: Priority;
+  reason: string;
+  confidence: number;
+  model: string;
+};
+
+export async function beginAiClassification(workspaceId: string, id: string) {
+  const db = await ensureSchema();
+  const result = await db.prepare(
+    `UPDATE feedback_records
+     SET ai_review_status = '分类中'
+     WHERE id = ? AND workspace_id = ?
+       AND COALESCE(ai_review_status, '') != '分类中'
+       AND (ai_classified_at IS NULL OR datetime(ai_classified_at) < datetime('now', '-10 seconds'))`,
+  ).bind(id, workspaceId).run();
+  if ((result.meta?.changes ?? 0) === 0) {
+    const record = await db.prepare(
+      "SELECT id FROM feedback_records WHERE id = ? AND workspace_id = ?",
+    ).bind(id, workspaceId).first<{ id: string }>();
+    return record ? { error: "分类请求过于频繁，请稍后再试。", status: 429 as const } : { error: "记录不存在。", status: 404 as const };
+  }
+  return { ok: true as const };
+}
+
+export async function saveAiSuggestion(workspaceId: string, id: string, suggestion: AiSuggestion) {
+  const db = await ensureSchema();
+  const now = new Date().toISOString();
+  await db.prepare(
+    `UPDATE feedback_records SET
+      ai_need_tag = ?, ai_priority = ?, ai_reason = ?, ai_confidence = ?,
+      ai_review_status = '待审核', ai_model = ?, ai_classified_at = ?,
+      ai_reviewed_at = NULL, ai_reviewed_by = NULL
+     WHERE id = ? AND workspace_id = ?`,
+  ).bind(
+    suggestion.needTag, suggestion.priority, suggestion.reason.slice(0, 240), suggestion.confidence,
+    suggestion.model, now, id, workspaceId,
+  ).run();
+  return getFeedback(workspaceId, id);
+}
+
+export async function markAiClassificationFailed(workspaceId: string, id: string) {
+  const db = await ensureSchema();
+  await db.prepare(
+    `UPDATE feedback_records SET ai_review_status = '分类失败', ai_classified_at = ?
+     WHERE id = ? AND workspace_id = ?`,
+  ).bind(new Date().toISOString(), id, workspaceId).run();
+}
+
+export async function reviewAiSuggestion(
+  workspaceId: string,
+  actorEmail: string,
+  id: string,
+  input: { needTag?: string; priority?: string },
+) {
+  const current = await getFeedback(workspaceId, id);
+  if (!current) return { error: "记录不存在。", status: 404 as const };
+  if (current.record.ai_review_status !== "待审核" || !current.record.ai_need_tag || !current.record.ai_priority) {
+    return { error: "当前没有等待确认的 AI 建议。", status: 409 as const };
+  }
+  if (!needTags.includes(input.needTag as NeedTag) || !priorities.includes(input.priority as Priority)) {
+    return { error: "需求标签或优先级无效。", status: 400 as const };
+  }
+
+  const needTag = input.needTag as NeedTag;
+  const priority = input.priority as Priority;
+  const accepted = needTag === current.record.ai_need_tag && priority === current.record.ai_priority;
+  const now = new Date().toISOString();
+  const db = await ensureSchema();
+  await db.batch([
+    db.prepare(
+      `UPDATE feedback_records SET need_tag = ?, priority = ?, ai_review_status = ?,
+        ai_reviewed_at = ?, ai_reviewed_by = ?, updated_at = ?
+       WHERE id = ? AND workspace_id = ? AND ai_review_status = '待审核'`,
+    ).bind(needTag, priority, accepted ? "已接受" : "已修改", now, actorEmail, now, id, workspaceId),
+    db.prepare(
+      `INSERT INTO record_events
+        (id, record_id, workspace_id, actor_email, action, changes_json, created_at)
+       SELECT ?, id, workspace_id, ?, ?, ?, ? FROM feedback_records
+       WHERE id = ? AND workspace_id = ? AND ai_reviewed_at = ? AND ai_reviewed_by = ?`,
+    ).bind(
+      crypto.randomUUID(), actorEmail,
+      accepted ? "接受 AI 分类" : "修改 AI 分类",
+      JSON.stringify({
+        ai_suggestion: { need_tag: current.record.ai_need_tag, priority: current.record.ai_priority },
+        final: { need_tag: needTag, priority },
+      }),
+      now, id, workspaceId, now, actorEmail,
+    ),
   ]);
   return { record: await getFeedback(workspaceId, id), status: 200 as const };
 }

@@ -9,6 +9,9 @@ type FeedbackRecord = {
   content_id: string | null; author_alias: string | null; summary: string; sentiment: string;
   need_tag: string; priority: string; status: string; assignee_email: string | null;
   next_action: string | null; occurred_at: string; created_at: string; updated_at: string;
+  ai_need_tag: string | null; ai_priority: string | null; ai_reason: string | null;
+  ai_confidence: number | null; ai_review_status: string | null; ai_model: string | null;
+  ai_classified_at: string | null; ai_reviewed_at: string | null; ai_reviewed_by: string | null;
 };
 type FeedbackEvent = { id: string; actor_email: string; action: string; changes_json: string; created_at: string };
 type Connection = { platform: string; status: string; account_label: string | null; last_synced_at: string | null };
@@ -98,6 +101,37 @@ export default function OpsWorkbench({ currentUser, signOutPath }: { currentUser
     finally { setBusy(false); }
   }
 
+  async function classifyRecord() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/ops/feedback/${selected.record.id}/classify`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "AI 分类失败");
+      setSelected(data);
+      setNotice("AI 建议已生成，请人工确认后保存");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "AI 分类失败"); }
+    finally { setBusy(false); }
+  }
+
+  async function reviewClassification(needTag: string, priority: string) {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/ops/feedback/${selected.record.id}/classification-review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ needTag, priority }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "AI 建议确认失败");
+      setSelected(data);
+      setNotice("人工确认已保存，正式字段和审计记录已更新");
+      await loadRecords();
+    } catch (error) { setNotice(error instanceof Error ? error.message : "AI 建议确认失败"); }
+    finally { setBusy(false); }
+  }
+
   async function importCsv(file: File) {
     const text = await file.text();
     const parsed = parseCsv(text);
@@ -176,7 +210,7 @@ export default function OpsWorkbench({ currentUser, signOutPath }: { currentUser
       <footer className="ops-footer"><span>QZ OPS · 云端可追踪记录</span><p>真实运营数据不进入公开作品集 · 默认匿名化 · 不自动对外写入</p></footer>
 
       {showCreate && <FeedbackEditor title="新增反馈记录" initial={emptyForm} busy={busy} onCancel={() => setShowCreate(false)} onSave={createRecord} />}
-      {selected && <FeedbackEditor title={selected.record.trace_code} initial={recordToInput(selected.record)} events={selected.events} busy={busy} onCancel={() => setSelected(null)} onSave={updateRecord} />}
+      {selected && <FeedbackEditor key={`${selected.record.id}-${selected.record.updated_at}-${selected.record.ai_classified_at ?? "none"}`} title={selected.record.trace_code} initial={recordToInput(selected.record)} record={selected.record} events={selected.events} busy={busy} onCancel={() => setSelected(null)} onSave={updateRecord} onClassify={classifyRecord} onReviewClassification={reviewClassification} />}
     </main>
   );
 }
@@ -184,10 +218,14 @@ export default function OpsWorkbench({ currentUser, signOutPath }: { currentUser
 function Stat({ label, value, note, accent = false }: { label: string; value: string | number; note: string; accent?: boolean }) { return <article className={accent ? "accent" : ""}><span>{label}</span><strong>{value}</strong><small>{note}</small></article>; }
 function Filter({ value, options, label, onChange }: { value: string; options: readonly string[]; label: string; onChange: (value: string) => void }) { return <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}><option value="">{label}</option>{options.map((option) => <option key={option}>{option}</option>)}</select>; }
 
-function FeedbackEditor({ title, initial, events, busy, onCancel, onSave }: { title: string; initial: FeedbackInput; events?: FeedbackEvent[]; busy: boolean; onCancel: () => void; onSave: (input: FeedbackInput) => Promise<void> }) {
+function FeedbackEditor({ title, initial, record, events, busy, onCancel, onSave, onClassify, onReviewClassification }: { title: string; initial: FeedbackInput; record?: FeedbackRecord; events?: FeedbackEvent[]; busy: boolean; onCancel: () => void; onSave: (input: FeedbackInput) => Promise<void>; onClassify?: () => Promise<void>; onReviewClassification?: (needTag: string, priority: string) => Promise<void> }) {
   const [form, setForm] = useState(initial);
+  const [reviewNeedTag, setReviewNeedTag] = useState(record?.ai_need_tag ?? "");
+  const [reviewPriority, setReviewPriority] = useState(record?.ai_priority ?? "");
   const set = (key: keyof FeedbackInput, value: string) => setForm({ ...form, [key]: value });
-  return <div className="ops-modal-backdrop" role="presentation"><section className="ops-modal" role="dialog" aria-modal="true" aria-label={title}><header><div><span>TRACEABLE RECORD</span><h2>{title}</h2></div><button onClick={onCancel} aria-label="关闭">×</button></header><form onSubmit={(e) => { e.preventDefault(); void onSave(form); }}><div className="form-grid"><Field label="平台"><Filter value={form.platform ?? ""} options={platforms} label="选择平台" onChange={(value) => set("platform", value)} /></Field><Field label="来源类型"><Filter value={form.sourceType ?? ""} options={sourceTypes} label="选择类型" onChange={(value) => set("sourceType", value)} /></Field><Field label="平台记录编号"><input value={form.externalId ?? ""} onChange={(e) => set("externalId", e.target.value)} /></Field><Field label="内容编号"><input value={form.contentId ?? ""} onChange={(e) => set("contentId", e.target.value)} /></Field><Field label="用户代号"><input value={form.authorAlias ?? ""} onChange={(e) => set("authorAlias", e.target.value)} placeholder="请使用匿名代号" /></Field><Field label="发生时间"><input type="datetime-local" value={(form.occurredAt ?? "").slice(0, 16)} onChange={(e) => set("occurredAt", e.target.value)} /></Field><Field label="情绪"><Filter value={form.sentiment ?? ""} options={sentiments} label="选择情绪" onChange={(value) => set("sentiment", value)} /></Field><Field label="需求标签"><Filter value={form.needTag ?? ""} options={needTags} label="选择标签" onChange={(value) => set("needTag", value)} /></Field><Field label="优先级"><Filter value={form.priority ?? ""} options={priorities} label="选择优先级" onChange={(value) => set("priority", value)} /></Field><Field label="状态"><Filter value={form.status ?? ""} options={statuses} label="选择状态" onChange={(value) => set("status", value)} /></Field><Field label="负责人邮箱"><input type="email" value={form.assigneeEmail ?? ""} onChange={(e) => set("assigneeEmail", e.target.value)} /></Field><Field label="下一步"><input value={form.nextAction ?? ""} onChange={(e) => set("nextAction", e.target.value)} /></Field><Field label="匿名摘要" wide><textarea required rows={5} value={form.summary ?? ""} onChange={(e) => set("summary", e.target.value)} placeholder="不要粘贴私信原文；先去除手机号、微信号、邮箱和客户信息。" /></Field></div><div className="modal-actions"><button type="button" className="ops-button" onClick={onCancel}>取消</button><button className="ops-button primary" disabled={busy}>{busy ? "保存中…" : "保存并留痕"}</button></div></form>{events && <div className="event-list"><h3>处理时间线</h3>{events.map((event) => <article key={event.id}><span>{formatDate(event.created_at)}</span><strong>{event.action}</strong><small>{event.actor_email}</small><code>{humanChanges(event.changes_json)}</code></article>)}</div>}</section></div>;
+  const awaitingReview = record?.ai_review_status === "待审核";
+  const lowConfidence = (record?.ai_confidence ?? 1) < 0.65;
+  return <div className="ops-modal-backdrop" role="presentation"><section className="ops-modal" role="dialog" aria-modal="true" aria-label={title}><header><div><span>TRACEABLE RECORD</span><h2>{title}</h2></div><button onClick={onCancel} aria-label="关闭">×</button></header><form onSubmit={(e) => { e.preventDefault(); void onSave(form); }}><div className="form-grid"><Field label="平台"><Filter value={form.platform ?? ""} options={platforms} label="选择平台" onChange={(value) => set("platform", value)} /></Field><Field label="来源类型"><Filter value={form.sourceType ?? ""} options={sourceTypes} label="选择类型" onChange={(value) => set("sourceType", value)} /></Field><Field label="平台记录编号"><input value={form.externalId ?? ""} onChange={(e) => set("externalId", e.target.value)} /></Field><Field label="内容编号"><input value={form.contentId ?? ""} onChange={(e) => set("contentId", e.target.value)} /></Field><Field label="用户代号"><input value={form.authorAlias ?? ""} onChange={(e) => set("authorAlias", e.target.value)} placeholder="请使用匿名代号" /></Field><Field label="发生时间"><input type="datetime-local" value={(form.occurredAt ?? "").slice(0, 16)} onChange={(e) => set("occurredAt", e.target.value)} /></Field><Field label="情绪"><Filter value={form.sentiment ?? ""} options={sentiments} label="选择情绪" onChange={(value) => set("sentiment", value)} /></Field><Field label="需求标签"><Filter value={form.needTag ?? ""} options={needTags} label="选择标签" onChange={(value) => set("needTag", value)} /></Field><Field label="优先级"><Filter value={form.priority ?? ""} options={priorities} label="选择优先级" onChange={(value) => set("priority", value)} /></Field><Field label="状态"><Filter value={form.status ?? ""} options={statuses} label="选择状态" onChange={(value) => set("status", value)} /></Field><Field label="负责人邮箱"><input type="email" value={form.assigneeEmail ?? ""} onChange={(e) => set("assigneeEmail", e.target.value)} /></Field><Field label="下一步"><input value={form.nextAction ?? ""} onChange={(e) => set("nextAction", e.target.value)} /></Field><Field label="匿名摘要" wide><textarea required rows={5} value={form.summary ?? ""} onChange={(e) => set("summary", e.target.value)} placeholder="不要粘贴私信原文；先去除手机号、微信号、邮箱和客户信息。" /></Field></div><div className="modal-actions"><button type="button" className="ops-button" onClick={onCancel}>取消</button><button className="ops-button primary" disabled={busy}>{busy ? "保存中…" : "保存并留痕"}</button></div></form>{record && <section className="ai-review-card"><div className="ai-review-head"><div><span>AI ASSISTED / HUMAN APPROVED</span><h3>AI 分类建议</h3></div><button type="button" className="ops-button" disabled={busy} onClick={() => void onClassify?.()}>{busy ? "处理中…" : record.ai_classified_at ? "重新生成" : "获取 AI 建议"}</button></div><p className="ai-privacy-note">只发送已脱敏的匿名摘要。AI 建议不会自动写入正式字段。</p>{record.ai_review_status && <span className={`ai-status ${awaitingReview ? "pending" : ""}`}>{record.ai_review_status}</span>}{record.ai_reason && <div className="ai-reason"><strong>判断理由</strong><p>{record.ai_reason}</p><small>置信度 {Math.round((record.ai_confidence ?? 0) * 100)}% · {record.ai_model}</small></div>}{awaitingReview && <div className="ai-review-form"><Field label="确认后的需求标签"><Filter value={reviewNeedTag} options={needTags} label="选择标签" onChange={setReviewNeedTag} /></Field><Field label="确认后的优先级"><Filter value={reviewPriority} options={priorities} label="选择优先级" onChange={setReviewPriority} /></Field>{(reviewPriority === "P0" || lowConfidence) && <p className="ai-warning">{reviewPriority === "P0" ? "P0 属于立即处理级别，请再次核对。" : "置信度较低，建议重点人工核对。"}</p>}<button type="button" className="ops-button primary" disabled={busy || !reviewNeedTag || !reviewPriority} onClick={() => void onReviewClassification?.(reviewNeedTag, reviewPriority)}>人工确认并保存</button></div>}</section>}{events && <div className="event-list"><h3>处理时间线</h3>{events.map((event) => <article key={event.id}><span>{formatDate(event.created_at)}</span><strong>{event.action}</strong><small>{event.actor_email}</small><code>{humanChanges(event.changes_json)}</code></article>)}</div>}</section></div>;
 }
 function Field({ label, wide = false, children }: { label: string; wide?: boolean; children: React.ReactNode }) { return <label className={wide ? "field-wide" : ""}><span>{label}</span>{children}</label>; }
 
