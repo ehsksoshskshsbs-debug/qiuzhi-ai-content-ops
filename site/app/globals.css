@@ -47,6 +47,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .topbar nav a { position: relative; padding: 8px 0; }
 .topbar nav a::after { content: ""; position: absolute; left: 0; right: 100%; bottom: 2px; height: 2px; background: var(--ink); transition: right .2s ease; }
 .topbar nav a:hover::after { right: 0; }
+.topbar nav .workspace-link { padding: 8px 12px; border: 1px solid var(--ink); border-radius: 999px; background: var(--yellow); box-shadow: 2px 2px 0 var(--ink); white-space: nowrap; }
+.topbar nav .workspace-link::after { display: none; }
+.topbar nav .workspace-link:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
 
 .section { padding: clamp(76px, 9vw, 132px) clamp(22px, 6vw, 92px); scroll-margin-top: 74px; }
 .hero { min-height: calc(100vh - 76px); display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(340px, .88fr); align-items: center; gap: clamp(50px, 7vw, 110px); overflow: hidden; }
@@ -294,4 +297,3 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
-

@@ -39,6 +39,7 @@ export default function Home() {
         </a>
         <nav aria-label="主要导航">
           {navItems.map(([label, href]) => <a key={href} href={href}>{label}</a>)}
+          <a className="workspace-link" href="/ops">团队工作台</a>
         </nav>
       </header>
 
@@ -48,7 +49,8 @@ export default function Home() {
           <h1>让内容运营<br />从“发出去”到<br /><em>留得下证据。</em></h1>
           <p className="hero-lead">从账号定位、内容表达和 30 条代表视频出发，快速看懂秋芝2046如何帮助 AI 小白真正把工具用起来。</p>
           <div className="hero-actions">
-            <a className="button primary" href="#videos">先看视频地图 <span>↘</span></a>
+            <a className="button primary" href="/ops">打开团队工作台 · 登录后使用</a>
+            <a className="button secondary" href="#videos">先看视频地图 <span>↘</span></a>
             <a className="button secondary" href="#insight">查看账号洞察</a>
           </div>
           <div className="hero-stats" aria-label="项目概览">

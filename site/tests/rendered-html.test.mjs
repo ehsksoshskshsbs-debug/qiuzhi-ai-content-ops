@@ -87,7 +87,10 @@ test("server-renders the simplified public video guide", async () => {
   assert.match(html, /不代表秋芝2046官方/);
   assert.match(html, /href="#insight"/);
   assert.match(html, /href="#videos"/);
-  assert.doesNotMatch(html, /href="#agent"|href="#knowledge"|href="#case"|href="#dashboard"|href="\/ops"/);
+  assert.match(html, /团队工作台/);
+  assert.match(html, /打开团队工作台 · 登录后使用/);
+  assert.equal((html.match(/href="\/ops"/g) ?? []).length, 2);
+  assert.doesNotMatch(html, /href="#agent"|href="#knowledge"|href="#case"|href="#dashboard"/);
   assert.doesNotMatch(html, /CODEX AGENT|KNOWLEDGE BASE|CASE STUDY|OPERATIONS DASHBOARD/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/);
 });
